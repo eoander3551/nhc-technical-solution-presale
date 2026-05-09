@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NHC Services Process</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f4f0; color: #1a1917; min-height: 100vh; }
+
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── Diagram panel ── */
+  .diagram-panel { flex: 0 0 460px; overflow-y: auto; padding: 20px 16px; background: #faf9f7; border-right: 1px solid #e2e0da; }
+  .diagram-panel h1 { font-size: 13px; font-weight: 600; color: #444441; margin-bottom: 14px; letter-spacing: .02em; text-transform: uppercase; }
+
+  /* Legend */
+  .legend { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #5f5e5a; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Shared nodes */
+  .node { cursor: pointer; transition: filter .15s; }
+  .node:hover { filter: brightness(.94); }
+  .node.active rect, .node.active polygon { stroke-width: 2 !important; }
+
+  /* Flow lines */
+  .flow-line { pointer-events: none; }
+
+  /* ── Detail panel ── */
+  .detail-panel { flex: 1; overflow-y: auto; padding: 28px 28px; }
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888780; gap: 10px; }
+  .empty-state svg { opacity: .3; }
+  .empty-state p { font-size: 13px; }
+
+  .detail-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e0da; }
+  .detail-num { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+  .detail-title-wrap { flex: 1; }
+  .detail-title { font-size: 17px; font-weight: 600; color: #1a1917; line-height: 1.3; }
+  .detail-actor { font-size: 12px; margin-top: 4px; font-weight: 500; }
+  .detail-path-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 500; margin-left: 8px; }
+
+  .detail-section { margin-bottom: 20px; }
+  .detail-section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: #888780; margin-bottom: 10px; }
+
+  .req-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .req-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: #3a3937; line-height: 1.5; padding: 8px 10px; background: #f5f4f0; border-radius: 6px; border: 1px solid #e2e0da; }
+  .req-list li .bullet { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .req-list li.warn { background: #fef9ec; border-color: #f0d070; color: #7a5c00; }
+  .req-list li.info { background: #eef5fb; border-color: #b8d4ef; color: #0c447c; }
+  .req-list li.danger { background: #fdeeed; border-color: #f0b8b5; color: #8b1a17; }
+  .req-list li.optional { background: #f0effe; border-color: #ccc9f5; color: #3c3489; opacity: .85; }
+
+  .outcome-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .outcome-card { padding: 10px 12px; border-radius: 6px; border: 1px solid; font-size: 12px; line-height: 1.5; }
+  .outcome-card strong { display: block; font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+
+  .note-box { padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.6; border: 1px solid; margin-bottom: 16px; }
+
+  @media (max-width: 700px) {
+    .layout { flex-direction: column; height: auto; }
+    .diagram-panel { flex: none; border-right: none; border-bottom: 1px solid #e2e0da; overflow-x: auto; }
+    .detail-panel { padding: 20px 16px; }
+    .outcome-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── DIAGRAM ── -->
+  <div class="diagram-panel">
+    <h1>NHC Services Process</h1>
+    <div class="legend">
+      <div class="leg"><div class="leg-dot" style="background:#E6F1FB;border:1px solid #185FA5"></div>Sales</div>
+      <div class="leg"><div class="leg-dot" style="background:#E1F5EE;border:1px solid #0F6E56"></div>SE</div>
+      <div class="leg"><div class="leg-dot" style="background:#EEEDFE;border:1px solid #534AB7"></div>Vendor</div>
+      <div class="leg"><div class="leg-dot" style="background:#F1EFE8;border:1px solid #5F5E5A"></div>NHC</div>
+      <div class="leg"><div class="leg-dot" style="background:#fff;border:1px dashed #534AB7"></div>Optional</div>
+    </div>
+
+    <svg id="diagram" viewBox="0 0 440 820" width="100%" style="display:block">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#aaa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+        <marker id="arr-b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#185FA5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+        <marker id="arr-t" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#0F6E56" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+        <marker id="arr-g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+
+      <!-- Step 1: Sales intake (shared) -->
+      <g class="node" id="n-s1" onclick="show('s1')">
+        <rect x="120" y="10" width="200" height="48" rx="6" fill="#E6F1FB" stroke="#185FA5" stroke-width="1"/>
+        <text x="220" y="30" text-anchor="middle" font-size="12" font-weight="600" fill="#0C447C" font-family="sans-serif">1. Sales intake</text>
+        <text x="220" y="47" text-anchor="middle" font-size="10" fill="#185FA5" font-family="sans-serif">Universal form — product selected</text>
+      </g>
+
+      <line class="flow-line" x1="220" y1="58" x2="220" y2="76" stroke="#aaa" stroke-width="1" marker-end="url(#arr)"/>
+
+      <!-- Step 2: SE Qualification (shared) -->
+      <g class="node" id="n-s2" onclick="show('s2')">
+        <rect x="120" y="76" width="200" height="48" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1"/>
+        <text x="220" y="96" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="sans-serif">2. SE qualification</text>
+        <text x="220" y="113" text-anchor="middle" font-size="10" fill="#0F6E56" font-family="sans-serif">Fit check — product-aware criteria</text>
+      </g>
+
+      <!-- Not eligible off-ramp -->
+      <line class="flow-line" x1="120" y1="100" x2="60" y2="100" stroke="#aaa" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+      <rect x="4" y="86" width="56" height="28" rx="5" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+      <text x="32" y="103" text-anchor="middle" font-size="9" fill="#444441" font-family="sans-serif">Not eligible</text>
+
+      <line class="flow-line" x1="220" y1="124" x2="220" y2="146" stroke="#aaa" stroke-width="1" marker-end="url(#arr)"/>
+
+      <!-- Diamond -->
+      <polygon points="220,146 254,164 220,182 186,164" fill="white" stroke="#aaa" stroke-width="1"/>
+      <text x="220" y="167" text-anchor="middle" font-size="10" fill="#5f5e5a" font-family="sans-serif">Product?</text>
+
+      <!-- Left label: Meter -->
+      <text x="100" y="192" text-anchor="middle" font-size="10" fill="#185FA5" font-weight="600" font-family="sans-serif">Meter</text>
+      <!-- Right label: All others -->
+      <text x="340" y="192" text-anchor="middle" font-size="10" fill="#0F6E56" font-weight="600" font-family="sans-serif">All others</text>
+
+      <!-- Branch lines -->
+      <line class="flow-line" x1="186" y1="164" x2="110" y2="164" stroke="#185FA5" stroke-width="1"/>
+      <line class="flow-line" x1="110" y1="164" x2="110" y2="210" stroke="#185FA5" stroke-width="1" marker-end="url(#arr-b)"/>
+      <line class="flow-line" x1="254" y1="164" x2="330" y2="164" stroke="#0F6E56" stroke-width="1"/>
+      <line class="flow-line" x1="330" y1="164" x2="330" y2="210" stroke="#0F6E56" stroke-width="1" marker-end="url(#arr-t)"/>
+
+      <!-- ── LEFT: Meter ── -->
+
+      <!-- M-3a: Register -->
+      <g class="node" id="n-m3a" onclick="show('m3a')">
+        <rect x="10" y="210" width="200" height="48" rx="6" fill="#E6F1FB" stroke="#185FA5" stroke-width="1"/>
+        <text x="110" y="230" text-anchor="middle" font-size="12" font-weight="600" fill="#0C447C" font-family="sans-serif">3a. Register on Meter portal</text>
+        <text x="110" y="247" text-anchor="middle" font-size="10" fill="#185FA5" font-family="sans-serif">SE submits via partner site</text>
+      </g>
+      <line class="flow-line" x1="110" y1="258" x2="110" y2="276" stroke="#185FA5" stroke-width="1" marker-end="url(#arr-b)"/>
+
+      <!-- M-3b: Meter confirms -->
+      <g class="node" id="n-m3b" onclick="show('m3b')">
+        <rect x="10" y="276" width="200" height="48" rx="6" fill="#EEEDFE" stroke="#534AB7" stroke-width="1"/>
+        <text x="110" y="296" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="sans-serif">3b. Meter confirms registration</text>
+        <text x="110" y="313" text-anchor="middle" font-size="10" fill="#534AB7" font-family="sans-serif">Approved / rejected / more info</text>
+      </g>
+      <line class="flow-line" x1="110" y1="324" x2="110" y2="342" stroke="#185FA5" stroke-width="1" marker-end="url(#arr-b)"/>
+
+      <!-- M-3c: Technical discovery -->
+      <g class="node" id="n-m3c" onclick="show('m3c')">
+        <rect x="10" y="342" width="200" height="48" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1"/>
+        <text x="110" y="362" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="sans-serif">3c. Technical discovery</text>
+        <text x="110" y="379" text-anchor="middle" font-size="10" fill="#0F6E56" font-family="sans-serif">SE-led, Meter supports</text>
+      </g>
+      <line class="flow-line" x1="110" y1="390" x2="110" y2="408" stroke="#185FA5" stroke-width="1" marker-end="url(#arr-b)"/>
+
+      <!-- M-3d: Partner pricing -->
+      <g class="node" id="n-m3d" onclick="show('m3d')">
+        <rect x="10" y="408" width="200" height="48" rx="6" fill="#EEEDFE" stroke="#534AB7" stroke-width="1"/>
+        <text x="110" y="428" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="sans-serif">3d. Meter provides partner pricing</text>
+        <text x="110" y="445" text-anchor="middle" font-size="10" fill="#534AB7" font-family="sans-serif">To SE / product only</text>
+      </g>
+      <line class="flow-line" x1="110" y1="456" x2="110" y2="474" stroke="#185FA5" stroke-width="1" marker-end="url(#arr-b)"/>
+
+      <!-- M-3e: Solution assembly -->
+      <g class="node" id="n-m3e" onclick="show('m3e')">
+        <rect x="10" y="474" width="200" height="58" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1"/>
+        <text x="110" y="496" text-anchor="middle" font-size="12" font-weight="600" fill="#444441" font-family="sans-serif">3e. Solution assembly</text>
+        <text x="110" y="512" text-anchor="middle" font-size="10" fill="#5F5E5A" font-family="sans-serif">Item codes · margin ·</text>
+        <text x="110" y="525" text-anchor="middle" font-size="10" fill="#5F5E5A" font-family="sans-serif">SE approval summary</text>
+      </g>
+
+      <!-- ── RIGHT: All others ── -->
+
+      <!-- O-3a: Technical discovery -->
+      <g class="node" id="n-o3a" onclick="show('o3a')">
+        <rect x="230" y="210" width="200" height="48" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1"/>
+        <text x="330" y="230" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="sans-serif">3a. Technical discovery</text>
+        <text x="330" y="247" text-anchor="middle" font-size="10" fill="#0F6E56" font-family="sans-serif">VeloCloud · BigLeaf · Fortinet · Netskope · UniFi</text>
+      </g>
+      <line class="flow-line" x1="330" y1="258" x2="330" y2="276" stroke="#0F6E56" stroke-width="1" marker-end="url(#arr-t)"/>
+
+      <!-- O-3b: Vendor design support (optional) -->
+      <g class="node" id="n-o3b" onclick="show('o3b')">
+        <rect x="230" y="276" width="200" height="48" rx="6" fill="#EEEDFE" stroke="#534AB7" stroke-width="1" stroke-dasharray="5 3"/>
+        <text x="330" y="296" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="sans-serif">3b. Vendor design support</text>
+        <text x="330" y="313" text-anchor="middle" font-size="10" fill="#534AB7" font-family="sans-serif">Pre-sales assist if needed</text>
+      </g>
+      <line class="flow-line" x1="330" y1="324" x2="330" y2="342" stroke="#0F6E56" stroke-width="1" marker-end="url(#arr-t)"/>
+
+      <!-- O-3c: Internal pricing -->
+      <g class="node" id="n-o3c" onclick="show('o3c')">
+        <rect x="230" y="342" width="200" height="48" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1"/>
+        <text x="330" y="362" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="sans-serif">3c. Internal pricing</text>
+        <text x="330" y="379" text-anchor="middle" font-size="10" fill="#0F6E56" font-family="sans-serif">SE / product builds NHC quote</text>
+      </g>
+      <line class="flow-line" x1="330" y1="390" x2="330" y2="408" stroke="#0F6E56" stroke-width="1" marker-end="url(#arr-t)"/>
+
+      <!-- O-3d: Solution assembly -->
+      <g class="node" id="n-o3d" onclick="show('o3d')">
+        <rect x="230" y="408" width="200" height="58" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1"/>
+        <text x="330" y="430" text-anchor="middle" font-size="12" font-weight="600" fill="#444441" font-family="sans-serif">3d. Solution assembly</text>
+        <text x="330" y="446" text-anchor="middle" font-size="10" fill="#5F5E5A" font-family="sans-serif">Item codes · margin ·</text>
+        <text x="330" y="459" text-anchor="middle" font-size="10" fill="#5F5E5A" font-family="sans-serif">SE approval summary</text>
+      </g>
+
+      <!-- ── Merge ── -->
+      <line class="flow-line" x1="110" y1="532" x2="110" y2="610" stroke="#185FA5" stroke-width="1"/>
+      <line class="flow-line" x1="110" y1="610" x2="220" y2="610" stroke="#aaa" stroke-width="1"/>
+      <line class="flow-line" x1="330" y1="466" x2="330" y2="610" stroke="#0F6E56" stroke-width="1"/>
+      <line class="flow-line" x1="330" y1="610" x2="220" y2="610" stroke="#aaa" stroke-width="1"/>
+      <line class="flow-line" x1="220" y1="610" x2="220" y2="626" stroke="#aaa" stroke-width="1" marker-end="url(#arr-g)"/>
+
+      <!-- Step 4: Approval + Proposal (shared) -->
+      <g class="node" id="n-s4" onclick="show('s4')">
+        <rect x="120" y="626" width="200" height="58" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1"/>
+        <text x="220" y="648" text-anchor="middle" font-size="12" font-weight="600" fill="#444441" font-family="sans-serif">4. Internal approval + proposal</text>
+        <text x="220" y="664" text-anchor="middle" font-size="10" fill="#5F5E5A" font-family="sans-serif">SE · Product · Finance · Legal</text>
+        <text x="220" y="677" text-anchor="middle" font-size="10" fill="#5F5E5A" font-family="sans-serif">→ Sales presents</text>
+      </g>
+
+    </svg>
+  </div>
+
+  <!-- ── DETAIL PANEL ── -->
+  <div class="detail-panel" id="detail-panel">
+    <div class="empty-state" id="empty-state">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+      <p>Click any step to see requirements</p>
+    </div>
+    <div id="detail-content" style="display:none"></div>
+  </div>
+
+</div>
+
+<script>
+const STEPS = {
+  s1: {
+    num: '1', title: 'Sales intake', path: 'Shared', pathColor: '#185FA5', pathBg: '#E6F1FB',
+    actor: 'Sales', actorColor: '#0C447C',
+    note: { type: 'warn', text: 'Sales may only discuss Meter at a high level. No direct vendor contact, pricing promises, or deal registration until SE is engaged.' },
+    sections: [
+      { label: 'Required fields', items: [
+        { text: 'Customer name and primary contact' },
+        { text: 'Customer contact email and phone' },
+        { text: 'Sales rep name' },
+        { text: 'Product / service being scoped (Meter, VeloCloud, BigLeaf, Fortinet, Netskope, UniFi)' },
+        { text: 'Opportunity stage (Prospecting / Discovery / Qualified / Proposal / Negotiation)' },
+        { text: 'Number of locations' },
+        { text: 'Site addresses' },
+        { text: 'Approximate square footage per location' },
+        { text: 'Current vendor environment (firewall, switch, Wi-Fi)' },
+        { text: 'Known pain points' },
+        { text: 'Internet provider and circuit details' },
+        { text: 'Desired install timeframe' },
+        { text: 'Competitive situation' },
+        { text: 'Whether customer has already spoken to the vendor directly' },
+      ]},
+      { label: 'Optional', items: [
+        { text: 'Floor plans or network diagrams', type: 'optional' },
+        { text: 'Additional context or notes for SE', type: 'optional' },
+      ]},
+      { label: 'Not permitted', items: [
+        { text: 'Contacting any vendor directly', type: 'danger' },
+        { text: 'Promising pricing, discounts, or timelines', type: 'danger' },
+        { text: 'Sharing vendor collateral not approved by NHC/SE', type: 'danger' },
+      ]}
+    ]
+  },
+  s2: {
+    num: '2', title: 'SE qualification', path: 'Shared', pathColor: '#0F6E56', pathBg: '#E1F5EE',
+    actor: 'SE', actorColor: '#085041',
+    note: { type: 'info', text: 'SE determines fit before any vendor engagement or pricing work begins. If not a fit, sales is notified and the opportunity is closed.' },
+    sections: [
+      { label: 'Qualification criteria', items: [
+        { text: 'Multi-site or growing customer' },
+        { text: 'Needs managed networking, security, SD-WAN, or SASE' },
+        { text: 'Hardware refresh or contract renewal upcoming' },
+        { text: 'Weak internal IT / networking support' },
+        { text: 'Customer open to OpEx / NaaS / managed service model' },
+        { text: 'NHC can own the customer relationship' },
+      ]},
+      { label: 'Product-specific signals', items: [
+        { text: 'Meter: multi-site, needs managed Wi-Fi / switching / firewall, wants NaaS' },
+        { text: 'VeloCloud / BigLeaf: multiple WAN links, branch connectivity challenges, SD-WAN interest' },
+        { text: 'Fortinet: security consolidation, firewall refresh, NGFW or zero trust interest' },
+        { text: 'Netskope: cloud-first workforce, SASE / SSE requirement, SWG or CASB need' },
+        { text: 'UniFi: cost-conscious, simpler environment, SMB Wi-Fi / switching refresh' },
+      ]},
+      { label: 'Outcomes', items: [
+        { text: 'Qualified → proceed to path-specific steps' },
+        { text: 'Not eligible → notify sales, opportunity closed', type: 'danger' },
+      ]}
+    ]
+  },
+  m3a: {
+    num: '3a', title: 'Register on Meter portal', path: 'Meter path', pathColor: '#185FA5', pathBg: '#E6F1FB',
+    actor: 'SE only', actorColor: '#0C447C',
+    note: { type: 'warn', text: 'Only SE, product, or the designated channel owner may submit the deal registration. Sales must not access the Meter partner portal.' },
+    sections: [
+      { label: 'Required for registration', items: [
+        { text: 'Customer legal name' },
+        { text: 'Customer website' },
+        { text: 'Headquarters address' },
+        { text: 'Locations in scope' },
+        { text: 'Estimated number of users' },
+        { text: 'Estimated close date' },
+        { text: 'Opportunity description' },
+        { text: 'NHC sales owner name' },
+        { text: 'NHC SE owner name' },
+        { text: 'Requested reseller pricing path' },
+      ]},
+      { label: 'Where to submit', items: [
+        { text: 'Meter partner portal — SE submits directly', type: 'info' },
+      ]}
+    ]
+  },
+  m3b: {
+    num: '3b', title: 'Meter confirms registration', path: 'Meter path', pathColor: '#534AB7', pathBg: '#EEEDFE',
+    actor: 'Meter', actorColor: '#3C3489',
+    note: { type: 'warn', text: 'No pricing work or customer discussion begins until registration is approved. SE waits for Meter confirmation before proceeding.' },
+    sections: [
+      { label: 'Possible outcomes', items: [
+        { text: 'Approved → proceed to technical discovery', type: 'info' },
+        { text: 'More information needed → SE provides additional detail and resubmits' },
+        { text: 'Duplicate / conflict → SE resolves ownership with Meter before proceeding' },
+        { text: 'Rejected / not eligible → sales notified, NHC cannot quote Meter', type: 'danger' },
+      ]},
+      { label: 'SE actions on approval', items: [
+        { text: 'Log approval status and date in opportunity record' },
+        { text: 'Notify sales rep that discovery can begin' },
+        { text: 'Coordinate Meter pre-sales contact if needed' },
+      ]}
+    ]
+  },
+  m3c: {
+    num: '3c', title: 'Technical discovery', path: 'Meter path', pathColor: '#0F6E56', pathBg: '#E1F5EE',
+    actor: 'SE-led · Meter supports', actorColor: '#085041',
+    note: { type: 'info', text: 'Sales may attend discovery calls but must not lead technical discussions. SE coordinates with Meter pre-sales as needed.' },
+    sections: [
+      { label: 'Discovery checklist', items: [
+        { text: 'Floor plans and site layouts' },
+        { text: 'MDF / IDF locations and cabling status' },
+        { text: 'AP density requirements' },
+        { text: 'VLAN and network segmentation requirements' },
+        { text: 'Guest Wi-Fi requirements' },
+        { text: 'VPN and remote access needs' },
+        { text: 'Existing ISP circuits and bandwidth' },
+        { text: 'Cellular backup requirements' },
+        { text: 'Cutover constraints and maintenance windows' },
+        { text: 'Support expectations and SLA requirements' },
+      ]}
+    ]
+  },
+  m3d: {
+    num: '3d', title: 'Meter provides partner pricing', path: 'Meter path', pathColor: '#534AB7', pathBg: '#EEEDFE',
+    actor: 'Meter → SE / Product', actorColor: '#3C3489',
+    note: { type: 'warn', text: 'Pricing flows from Meter to SE / product only — never directly to the sales rep.' },
+    sections: [
+      { label: 'SE reviews from Meter', items: [
+        { text: 'Meter wholesale / reseller cost' },
+        { text: 'NRC and MRC breakdown' },
+        { text: 'Install charges' },
+        { text: 'Hardware and lifecycle terms' },
+        { text: 'Support responsibilities and SLA' },
+        { text: 'Contract term and renewal terms' },
+        { text: 'Customer credits, rebates, or MDF if applicable' },
+      ]},
+      { label: 'SE actions', items: [
+        { text: 'Validate pricing against deal registration scope' },
+        { text: 'Confirm margin before building customer quote' },
+        { text: 'Flag any exceptions to product / channel owner' },
+      ]}
+    ]
+  },
+  m3e: {
+    num: '3e', title: 'Solution assembly', path: 'Meter path', pathColor: '#5F5E5A', pathBg: '#F1EFE8',
+    actor: 'SE / Product', actorColor: '#444441',
+    note: { type: 'info', text: 'The completed solution package must be all-inclusive and signed off by SE before moving to internal approval. Nothing proceeds to sales without this.' },
+    sections: [
+      { label: 'Required deliverables', items: [
+        { text: 'Complete line-item list with all NHC item codes' },
+        { text: 'Meter NaaS line items (NRC, MRC, install)' },
+        { text: 'Optional NHC services: project management, smart hands, cabling coordination' },
+        { text: 'Optional NHC circuit / ISP services' },
+        { text: 'Taxes, surcharges, and pass-through charges' },
+        { text: 'Margin documented for every line item' },
+        { text: 'SE approval summary — signed off by SE owner' },
+      ]},
+      { label: 'SE approval summary must include', items: [
+        { text: 'Scope confirmation against discovery findings' },
+        { text: 'Margin sign-off (flag if exception required)' },
+        { text: 'Confirmation that Meter registration is approved' },
+        { text: 'Any non-standard terms or conditions noted' },
+      ]}
+    ]
+  },
+  o3a: {
+    num: '3a', title: 'Technical discovery', path: 'All-others path', pathColor: '#0F6E56', pathBg: '#E1F5EE',
+    actor: 'SE-led', actorColor: '#085041',
+    note: { type: 'info', text: 'SE leads discovery for all non-Meter products. Scope and questions vary by product — use the checklist below as a starting point.' },
+    sections: [
+      { label: 'Core discovery checklist (all products)', items: [
+        { text: 'Current environment: vendors, firmware versions, contract end dates' },
+        { text: 'Number of sites, users, and devices in scope' },
+        { text: 'WAN / internet connectivity details (provider, speed, redundancy)' },
+        { text: 'Performance pain points and outage history' },
+        { text: 'Security and compliance requirements' },
+        { text: 'IT staffing and managed service appetite' },
+        { text: 'Budget range and procurement model (CapEx vs OpEx)' },
+        { text: 'Desired go-live timeframe' },
+      ]},
+      { label: 'Product-specific questions', items: [
+        { text: 'VeloCloud / BigLeaf: number of WAN links, QoS requirements, branch vs hub topology' },
+        { text: 'Fortinet: current firewall vendor, threat profile, SSL inspection requirements' },
+        { text: 'Netskope: cloud app inventory, remote user count, DLP or CASB requirements' },
+        { text: 'UniFi: site square footage, AP count estimate, existing switching infrastructure' },
+      ]}
+    ]
+  },
+  o3b: {
+    num: '3b', title: 'Vendor design support', path: 'All-others path', pathColor: '#534AB7', pathBg: '#EEEDFE',
+    actor: 'Vendor pre-sales (optional)', actorColor: '#3C3489',
+    note: { type: 'info', text: 'This step is optional. SE engages vendor pre-sales only when the design complexity warrants it. SE must initiate — sales does not contact vendors directly.' },
+    sections: [
+      { label: 'When to engage vendor pre-sales', items: [
+        { text: 'Complex multi-site or multi-product design' },
+        { text: 'Customer has unique technical requirements outside SE\'s expertise' },
+        { text: 'Vendor sizing tools or design templates are needed' },
+        { text: 'Competitive displacement requiring vendor-specific positioning' },
+      ]},
+      { label: 'What vendor pre-sales typically provides', items: [
+        { text: 'Network design recommendations and sizing' },
+        { text: 'Bill of materials validation' },
+        { text: 'Technical proposal language and diagrams' },
+        { text: 'Proof-of-concept scoping' },
+      ]},
+      { label: 'Rules', items: [
+        { text: 'SE initiates all vendor pre-sales engagement', type: 'warn' },
+        { text: 'Sales does not attend vendor pre-sales calls without SE present', type: 'warn' },
+        { text: 'NHC owns the customer relationship — vendor pre-sales supports SE, not the customer directly', type: 'warn' },
+      ]}
+    ]
+  },
+  o3c: {
+    num: '3c', title: 'Internal pricing', path: 'All-others path', pathColor: '#0F6E56', pathBg: '#E1F5EE',
+    actor: 'SE / Product', actorColor: '#085041',
+    note: { type: 'info', text: 'NHC prices all non-Meter products internally. SE / product builds the full customer quote using NHC internal price books and margin targets.' },
+    sections: [
+      { label: 'Required inputs', items: [
+        { text: 'Completed discovery findings' },
+        { text: 'Vendor design recommendations (if pre-sales was engaged)' },
+        { text: 'NHC internal price book for relevant product' },
+        { text: 'Margin targets and any approved exceptions' },
+      ]},
+      { label: 'Quote must include', items: [
+        { text: 'All hardware line items with NHC item codes' },
+        { text: 'Software / licensing (NRC and MRC where applicable)' },
+        { text: 'Professional services: design, implementation, project management' },
+        { text: 'Ongoing managed services or support fees' },
+        { text: 'Taxes, surcharges, and pass-through charges' },
+      ]}
+    ]
+  },
+  o3d: {
+    num: '3d', title: 'Solution assembly', path: 'All-others path', pathColor: '#5F5E5A', pathBg: '#F1EFE8',
+    actor: 'SE / Product', actorColor: '#444441',
+    note: { type: 'info', text: 'The completed solution package must be all-inclusive and signed off by SE before moving to internal approval. Nothing proceeds to sales without this.' },
+    sections: [
+      { label: 'Required deliverables', items: [
+        { text: 'Complete line-item list with all NHC item codes' },
+        { text: 'Hardware, software, licensing, and services line items' },
+        { text: 'Optional NHC add-ons: project management, smart hands, cabling' },
+        { text: 'Taxes, surcharges, and pass-through charges' },
+        { text: 'Margin documented for every line item' },
+        { text: 'SE approval summary — signed off by SE owner' },
+      ]},
+      { label: 'SE approval summary must include', items: [
+        { text: 'Scope confirmation against discovery findings' },
+        { text: 'Margin sign-off (flag if exception required)' },
+        { text: 'Vendor design support notes (if pre-sales was engaged)' },
+        { text: 'Any non-standard terms or conditions noted' },
+      ]}
+    ]
+  },
+  s4: {
+    num: '4', title: 'Internal approval + proposal', path: 'Shared', pathColor: '#5F5E5A', pathBg: '#F1EFE8',
+    actor: 'NHC', actorColor: '#444441',
+    note: { type: 'warn', text: 'No quote leaves NHC until all required approvers have signed off. Sales must not present pricing to the customer before this step is complete.' },
+    sections: [
+      { label: 'Required approvers', items: [
+        { text: 'SE — confirms solution assembly is complete and accurate' },
+        { text: 'Product / channel owner — validates pricing and margin' },
+        { text: 'Finance / pricing — signs off on margin and surcharges' },
+        { text: 'Sales manager — required if margin exception is present' },
+        { text: 'Legal / contracts — required if non-standard terms are included' },
+      ]},
+      { label: 'Proposal must position as', items: [
+        { text: '"NHC-managed solution" — NHC owns the commercial relationship' },
+        { text: 'Vendor named as the underlying platform, not the prime contractor' },
+        { text: 'NHC services layered on top clearly described' },
+      ]},
+      { label: 'Proposal must include', items: [
+        { text: 'All line items from solution assembly' },
+        { text: 'NHC terms, SOA references, and billing obligations' },
+        { text: 'NRC / MRC breakdown clearly labeled' },
+        { text: 'Customer access requirements and acceptance criteria' },
+      ]}
+    ]
+  }
+};
+
+function show(id) {
+  const step = STEPS[id];
+  if (!step) return;
+
+  // Highlight active node
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
+  const el = document.getElementById('n-' + id);
+  if (el) el.classList.add('active');
+
+  document.getElementById('empty-state').style.display = 'none';
+  const content = document.getElementById('detail-content');
+  content.style.display = 'block';
+
+  let noteHtml = '';
+  if (step.note) {
+    const colors = {
+      warn: { bg: '#fef9ec', border: '#f0d070', color: '#7a5c00' },
+      info: { bg: '#eef5fb', border: '#b8d4ef', color: '#0c447c' },
+      danger: { bg: '#fdeeed', border: '#f0b8b5', color: '#8b1a17' }
+    }[step.note.type] || {};
+    noteHtml = `<div class="note-box" style="background:${colors.bg};border-color:${colors.border};color:${colors.color}">${step.note.text}</div>`;
+  }
+
+  let sectionsHtml = step.sections.map(sec => {
+    const items = sec.items.map(item => {
+      const cls = item.type ? ` ${item.type}` : '';
+      const bulletColor = { warn: '#c8a000', info: '#185FA5', danger: '#c0302c', optional: '#534AB7' }[item.type] || '#888780';
+      return `<li class="${cls}"><span class="bullet" style="background:${bulletColor}"></span>${item.text}</li>`;
+    }).join('');
+    return `<div class="detail-section"><div class="detail-section-label">${sec.label}</div><ul class="req-list">${items}</ul></div>`;
+  }).join('');
+
+  content.innerHTML = `
+    <div class="detail-header">
+      <div class="detail-num" style="background:${step.pathBg};color:${step.actorColor}">${step.num}</div>
+      <div class="detail-title-wrap">
+        <div class="detail-title">${step.title}</div>
+        <div class="detail-actor" style="color:${step.actorColor}">${step.actor}
+          <span class="detail-path-badge" style="background:${step.pathBg};color:${step.pathColor}">${step.path}</span>
+        </div>
+      </div>
+    </div>
+    ${noteHtml}
+    ${sectionsHtml}
+  `;
+}
+</script>
+</body>
+</html>
